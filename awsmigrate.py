@@ -2,10 +2,11 @@
 
 import configparser
 import os
-import inquirer
-import boto3
-from botocore.exceptions import ClientError
 import uuid
+
+import boto3
+import inquirer
+from botocore.exceptions import ClientError
 
 conf = configparser.ConfigParser()
 configfile = os.path.expanduser('~/.aws/config')
@@ -17,12 +18,12 @@ os.system('clear')
 # Choose source account
 accounts = [
     inquirer.List('srcacct',
-                  message = "Choose the source account",
-                  choices = acctchoices,
+                  message="Choose the source account",
+                  choices=acctchoices,
                   ),
 ]
 accountselections = inquirer.prompt(accounts)
-srcprofile = accountselections["srcacct"].replace("profile ","")
+srcprofile = accountselections["srcacct"].replace("profile ", "")
 
 # Start srcaccount session
 srcsession = boto3.Session(profile_name=srcprofile)
@@ -32,15 +33,15 @@ srcr53client = srcsession.client('route53')
 try:
     hostedzones = srcr53client.list_hosted_zones()
 
-    srczonenamelist=[]
-    srczonenamedict={}
+    srczonenamelist = []
+    srczonenamedict = {}
     for zone in hostedzones['HostedZones']:
-        zname=zone['Name']
-        zid=zone['Id'].replace("/hostedzone/","")
+        zname = zone['Name']
+        zid = zone['Id'].replace("/hostedzone/", "")
         znameclean = zname[:-1]
         srczonenamelist.append(znameclean)
-        srczonenamedict[znameclean]=zid
-        srczonenamedict[zid]=znameclean
+        srczonenamedict[znameclean] = zid
+        srczonenamedict[zid] = znameclean
 except ClientError as e:
     print(e.response['Error']['Code'])
     exit()
@@ -49,7 +50,7 @@ os.system('clear')
 # Choose zone to move
 whichzone = [
     inquirer.List(
-        'zonetomove', message = "Move which zone", choices = srczonenamelist,
+        'zonetomove', message="Move which zone", choices=srczonenamelist,
     ),
 ]
 
@@ -61,24 +62,24 @@ srczoneid = srczonenamedict[zonetomove]
 os.system('clear')
 dstaccounts = [
     inquirer.List(
-        'dstacct', message = "Choose the destination account", choices = acctchoices,
+        'dstacct', message="Choose the destination account", choices=acctchoices,
     ),
 ]
 dstaccountselection = inquirer.prompt(dstaccounts)
-dstprofile = dstaccountselection["dstacct"].replace("profile ","")
+dstprofile = dstaccountselection["dstacct"].replace("profile ", "")
 
 # Start dest account session
 dstsession = boto3.Session(profile_name=dstprofile)
 dstr53client = dstsession.client('route53')
 
 # See if zone exist in destination?
-dstzoneid=None
+dstzoneid = None
 try:
     doeszoneexists = dstr53client.list_hosted_zones_by_name()
     for zone in doeszoneexists['HostedZones']:
         if zonetomove in zone['Name']:
             # Zone Exists, grab the Destination Zone ID
-            dstzoneid=zone['Id'].replace("/hostedzone/","")
+            dstzoneid = zone['Id'].replace("/hostedzone/", "")
 except ClientError as e:
     print(e.response['Error']['Code'])
 
@@ -89,8 +90,8 @@ print()
 # Hosted Zone does not exist on destination and it must be created.
 if dstzoneid is None:
     # Create zone on destination side.
-    callref=uuid.uuid4()
-    createzoneresponse=None
+    callref = uuid.uuid4()
+    createzoneresponse = None
     try:
         createzoneresponse = dstr53client.create_hosted_zone(
             Name=zonetomove,
@@ -137,7 +138,7 @@ except ClientError as e:
     print(e.response['Error']['Code'])
 
 # Build changebatch
-changebatch={}
+changebatch = {}
 changebatch['Comment'] = 'Migrated using aws dns migrator'
 changebatch['Changes'] = dstzonechanges
 
@@ -188,7 +189,7 @@ if not transanswers:
     exit()
 
 # See if we can start the domain transfer process as well
-transferauthcode=None
+transferauthcode = None
 try:
     srcr53domainclient = srcsession.client('route53domains')
     fetchdomainauthcode = srcr53domainclient.retrieve_domain_auth_code(
@@ -199,7 +200,6 @@ except ClientError as e:
     Print("Problem fetching auth code.")
     print(e.response['Error']['Code'])
     exit()
-
 
 # transfer
 if transferauthcode is not None:
@@ -221,12 +221,12 @@ if transferauthcode is not None:
         transferdomain = dstr53domainclient.transfer_domain(
             DomainName=zonetomove,
             DurationInYears=1,
-            Nameservers = transfernameservers,
+            Nameservers=transfernameservers,
             AuthCode=transferauthcode,
             AutoRenew=True,
-            AdminContact = domaindetails['AdminContact'],
-            RegistrantContact = domaindetails['RegistrantContact'],
-            TechContact = domaindetails['TechContact'],
+            AdminContact=domaindetails['AdminContact'],
+            RegistrantContact=domaindetails['RegistrantContact'],
+            TechContact=domaindetails['TechContact'],
             PrivacyProtectAdminContact=True,
             PrivacyProtectRegistrantContact=True,
             PrivacyProtectTechContact=True
